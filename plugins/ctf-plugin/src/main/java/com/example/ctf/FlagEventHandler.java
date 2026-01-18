@@ -1,10 +1,17 @@
 package com.example.ctf;
 
+import com.example.ctf.match.MatchManager;
+import com.example.ctf.match.MatchState;
+import com.example.ctf.team.TeamManager;
+import com.example.ctf.team.TeamVisualManager;
+import com.example.ctf.ui.CTFScoreHud;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.server.core.entity.TransformComponent;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.ecs.DropItemEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerConnectEvent;
+import com.hypixel.hytale.server.core.event.events.player.PlayerDisconnectEvent;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
@@ -33,6 +40,17 @@ public class FlagEventHandler {
         plugin.getEventRegistry().register(
             DropItemEvent.PlayerRequest.class,
             this::onDropItemRequest
+        );
+
+        // Listen for player connect/disconnect for HUD and team management
+        plugin.getEventRegistry().registerGlobal(
+            PlayerConnectEvent.class,
+            this::onPlayerConnect
+        );
+
+        plugin.getEventRegistry().registerGlobal(
+            PlayerDisconnectEvent.class,
+            this::onPlayerDisconnect
         );
 
         plugin.getLogger().atInfo().log("FlagEventHandler: Event listeners registered");
@@ -103,6 +121,78 @@ public class FlagEventHandler {
 
         plugin.getLogger().atInfo().log("Player {} dropped flag via G key at {}",
             playerUuid, dropPosition);
+    }
+
+    /**
+     * Called when a player connects to the server.
+     * Shows score HUD if a match is active.
+     */
+    private void onPlayerConnect(@Nonnull PlayerConnectEvent event) {
+        PlayerRef playerRef = event.getPlayerRef();
+        if (playerRef == null) {
+            return;
+        }
+
+        // If a match is active, show the score HUD to the new player
+        MatchManager matchManager = plugin.getMatchManager();
+        if (matchManager != null && matchManager.getState() == MatchState.ACTIVE) {
+            int redScore = matchManager.getScore(FlagTeam.RED);
+            int blueScore = matchManager.getScore(FlagTeam.BLUE);
+
+            CTFScoreHud.showToPlayer(playerRef, plugin);
+            CTFScoreHud hud = CTFScoreHud.getHud(playerRef.getUuid());
+            if (hud != null) {
+                hud.updateScore(redScore, blueScore);
+            }
+        }
+
+        plugin.getLogger().atDebug().log("Player {} connected", playerRef.getUuid());
+    }
+
+    /**
+     * Called when a player disconnects from the server.
+     * Cleans up their HUD, team assignment, and visual effects.
+     */
+    private void onPlayerDisconnect(@Nonnull PlayerDisconnectEvent event) {
+        PlayerRef playerRef = event.getPlayerRef();
+        if (playerRef == null) {
+            return;
+        }
+
+        UUID playerUuid = playerRef.getUuid();
+
+        // Clean up score HUD tracking
+        CTFScoreHud.onPlayerDisconnect(playerUuid);
+
+        // Clean up team visual tracking
+        TeamVisualManager visualManager = plugin.getTeamVisualManager();
+        if (visualManager != null) {
+            visualManager.onPlayerDisconnect(playerUuid);
+        }
+
+        // Handle team manager disconnect (removes from team)
+        TeamManager teamManager = plugin.getTeamManager();
+        if (teamManager != null) {
+            teamManager.handlePlayerDisconnect(playerUuid);
+        }
+
+        // Drop flag if carrying one
+        FlagCarrierManager flagManager = plugin.getFlagCarrierManager();
+        if (flagManager.isCarryingFlag(playerUuid)) {
+            // Get position for drop
+            Ref<EntityStore> entityRef = playerRef.getReference();
+            Vector3d dropPosition = new Vector3d(0, 0, 0);
+            if (entityRef != null && entityRef.isValid()) {
+                TransformComponent transform = entityRef.getStore()
+                    .getComponent(entityRef, TransformComponent.getComponentType());
+                if (transform != null) {
+                    dropPosition = transform.getTranslation();
+                }
+            }
+            flagManager.dropFlag(playerUuid, dropPosition);
+        }
+
+        plugin.getLogger().atDebug().log("Player {} disconnected, cleaned up CTF state", playerUuid);
     }
 
 }

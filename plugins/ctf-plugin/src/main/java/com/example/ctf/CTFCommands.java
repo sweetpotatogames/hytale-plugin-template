@@ -604,7 +604,8 @@ public class CTFCommands extends CommandBase {
                         return;
                     }
 
-                    teamManager.assignTeam(playerRef.getUuid(), team);
+                    // Pass player name and ref for announcement and visual effects
+                    teamManager.assignTeam(playerRef.getUuid(), team, playerRef.getUsername(), playerRef);
                     ctx.sendMessage(Message.raw("You joined the " + team.getDisplayName() + " team!"));
                 }
                 case "leave" -> {
@@ -614,7 +615,8 @@ public class CTFCommands extends CommandBase {
                         return;
                     }
 
-                    FlagTeam leftTeam = teamManager.leaveTeam(playerRef.getUuid());
+                    // Pass player name and ref for announcement and visual effects
+                    FlagTeam leftTeam = teamManager.leaveTeam(playerRef.getUuid(), playerRef.getUsername(), playerRef);
                     if (leftTeam != null) {
                         ctx.sendMessage(Message.raw("You left the " + leftTeam.getDisplayName() + " team."));
                     } else {

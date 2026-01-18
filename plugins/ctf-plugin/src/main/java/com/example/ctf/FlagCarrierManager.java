@@ -1,5 +1,7 @@
 package com.example.ctf;
 
+import com.example.ctf.team.TeamManager;
+import com.example.ctf.ui.CTFAnnouncementManager;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.MovementSettings;
@@ -11,8 +13,11 @@ import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.entity.entities.player.movement.MovementManager;
 import com.hypixel.hytale.server.core.inventory.Inventory;
 import com.hypixel.hytale.server.core.inventory.ItemStack;
+import com.hypixel.hytale.server.core.modules.entity.component.DisplayNameComponent;
+import com.hypixel.hytale.server.core.modules.entity.damage.Damage;
 import com.hypixel.hytale.server.core.modules.entity.damage.DeathComponent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.hypixel.hytale.server.core.universe.Universe;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import javax.annotation.Nonnull;
@@ -111,7 +116,7 @@ public class FlagCarrierManager {
         // Check for dropped flags that should return to stand
         for (FlagData flagData : flags.values()) {
             if (flagData.shouldReturnToStand()) {
-                returnFlagToStand(flagData.getTeam());
+                returnFlagToStand(flagData.getTeam(), true); // true = timeout
                 plugin.getLogger().atInfo().log("{} flag returned to stand (timeout)",
                     flagData.getTeam().getDisplayName());
             }
@@ -194,11 +199,27 @@ public class FlagCarrierManager {
         plugin.getLogger().atInfo().log("{} team captured the {} flag! (Player: {})",
             scoringTeam.getDisplayName(), capturedFlagTeam.getDisplayName(), playerUuid);
 
-        // Return the captured flag to its stand
-        returnFlagToStand(capturedFlagTeam);
+        // Get player name for announcement before returning flag
+        String playerName = "Unknown";
+        PlayerRef playerRef = findPlayerRef(playerUuid);
+        if (playerRef != null) {
+            playerName = playerRef.getUsername();
+        }
 
-        // Add score for the capturing team
+        // Return the captured flag to its stand (don't announce this as it's part of capture)
+        FlagData flagData = flags.get(capturedFlagTeam);
+        flagData.returnToStand(); // Direct call to avoid double announcement
+
+        // Add score for the capturing team (this returns if they won)
         plugin.getMatchManager().addScore(scoringTeam);
+
+        // Announce the capture with updated scores
+        CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+        if (announcementManager != null && plugin.getMatchManager() != null) {
+            int redScore = plugin.getMatchManager().getScore(FlagTeam.RED);
+            int blueScore = plugin.getMatchManager().getScore(FlagTeam.BLUE);
+            announcementManager.announceFlagCaptured(scoringTeam, playerName, redScore, blueScore);
+        }
     }
 
     /**
@@ -244,6 +265,10 @@ public class FlagCarrierManager {
                 }
             }
 
+            // Check for killer to announce in kill feed
+            FlagTeam carriedFlagTeam = getCarriedFlagTeam(playerUuid);
+            announceCarrierKill(playerUuid, playerRef, deathComponent, carriedFlagTeam);
+
             dropFlag(playerUuid, deathPosition);
             plugin.getLogger().atInfo().log("Player {} died while carrying flag, dropped at {}",
                 playerUuid, deathPosition);
@@ -251,6 +276,57 @@ public class FlagCarrierManager {
         }
 
         return false;
+    }
+
+    /**
+     * Announces a flag carrier kill in the kill feed.
+     *
+     * @param victimUuid The UUID of the flag carrier who died
+     * @param victimRef The player ref of the victim
+     * @param deathComponent The death component with killer info
+     * @param carriedFlagTeam The team whose flag was being carried
+     */
+    private void announceCarrierKill(@Nonnull UUID victimUuid, @Nonnull PlayerRef victimRef,
+                                      @Nonnull DeathComponent deathComponent, @Nullable FlagTeam carriedFlagTeam) {
+        if (carriedFlagTeam == null) {
+            return;
+        }
+
+        Damage damage = deathComponent.getDeathInfo();
+        if (damage == null) {
+            return;
+        }
+
+        // Get victim's name and team
+        String victimName = victimRef.getUsername();
+        TeamManager teamManager = plugin.getTeamManager();
+        FlagTeam victimTeam = teamManager != null ? teamManager.getPlayerTeam(victimUuid) : null;
+
+        // Check if killed by another player
+        Damage.Source source = damage.getSource();
+        if (source instanceof Damage.EntitySource entitySource) {
+            Ref<EntityStore> killerRef = entitySource.getRef();
+            if (killerRef != null && killerRef.isValid()) {
+                // Try to find the killer's PlayerRef
+                Player killerPlayer = killerRef.getStore().getComponent(killerRef, Player.getComponentType());
+                if (killerPlayer != null && killerPlayer.getPlayerRef() != null) {
+                    PlayerRef killerPlayerRef = killerPlayer.getPlayerRef();
+                    String killerName = killerPlayerRef.getUsername();
+                    UUID killerUuid = killerPlayerRef.getUuid();
+                    FlagTeam killerTeam = teamManager != null ? teamManager.getPlayerTeam(killerUuid) : null;
+
+                    // Announce in kill feed
+                    CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+                    if (announcementManager != null && killerTeam != null && victimTeam != null) {
+                        announcementManager.announceKillFeedFlagCarrierKill(
+                            killerName, killerTeam,
+                            victimName, victimTeam,
+                            carriedFlagTeam
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -347,6 +423,13 @@ public class FlagCarrierManager {
         plugin.getLogger().atInfo().log("Player {} picked up {} flag!",
             playerUuid, team.getDisplayName());
 
+        // Announce the pickup
+        CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+        if (announcementManager != null) {
+            String playerName = playerRef.getUsername();
+            announcementManager.announceFlagPickup(playerUuid, playerName, team);
+        }
+
         return true;
     }
 
@@ -386,10 +469,18 @@ public class FlagCarrierManager {
         }
 
         // Update flag state
+        FlagTeam droppedFlagTeam = carriedFlag.getTeam();
         carriedFlag.drop(dropPosition);
 
         plugin.getLogger().atInfo().log("{} flag dropped at {}",
-            carriedFlag.getTeam().getDisplayName(), dropPosition);
+            droppedFlagTeam.getDisplayName(), dropPosition);
+
+        // Announce the drop
+        CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+        if (announcementManager != null && playerRef != null) {
+            String playerName = playerRef.getUsername();
+            announcementManager.announceFlagDropped(playerUuid, playerName, droppedFlagTeam);
+        }
     }
 
     /**
@@ -398,6 +489,16 @@ public class FlagCarrierManager {
      * @param team The team whose flag should return
      */
     public void returnFlagToStand(@Nonnull FlagTeam team) {
+        returnFlagToStand(team, false);
+    }
+
+    /**
+     * Returns a flag to its stand (called when own team touches dropped flag or timeout).
+     *
+     * @param team The team whose flag should return
+     * @param wasTimeout True if this is a timeout return
+     */
+    public void returnFlagToStand(@Nonnull FlagTeam team, boolean wasTimeout) {
         FlagData flagData = flags.get(team);
 
         // If carried, force drop first
@@ -412,10 +513,21 @@ public class FlagCarrierManager {
             }
         }
 
+        // Only announce if it was actually dropped (not at stand already)
+        boolean wasDropped = flagData.isDropped();
+
         flagData.returnToStand();
 
         plugin.getLogger().atInfo().log("{} flag returned to stand",
             team.getDisplayName());
+
+        // Announce the return if it was dropped
+        if (wasDropped) {
+            CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+            if (announcementManager != null) {
+                announcementManager.announceFlagReturned(team, wasTimeout);
+            }
+        }
     }
 
     /**

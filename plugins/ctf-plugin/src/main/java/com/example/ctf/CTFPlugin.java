@@ -10,6 +10,10 @@ import com.example.ctf.protection.BuildingProtectionHandler;
 import com.example.ctf.spawn.CTFRespawnController;
 import com.example.ctf.spawn.CTFSpawnProvider;
 import com.example.ctf.team.TeamManager;
+import com.example.ctf.team.TeamVisualManager;
+import com.example.ctf.ui.CTFAnnouncementManager;
+import com.example.ctf.ui.CTFScoreHud;
+import com.example.ctf.ui.CTFSoundManager;
 import com.hypixel.hytale.server.core.event.universe.world.AddWorldEvent;
 import com.hypixel.hytale.server.core.modules.interaction.interaction.config.Interaction;
 import com.hypixel.hytale.server.core.plugin.JavaPlugin;
@@ -49,6 +53,7 @@ public class CTFPlugin extends JavaPlugin {
 
     // Team & match systems
     private TeamManager teamManager;
+    private TeamVisualManager teamVisualManager;
     private MatchManager matchManager;
 
     // Spawn system
@@ -57,6 +62,10 @@ public class CTFPlugin extends JavaPlugin {
 
     // Editor integration
     private CTFMarkerProvider markerProvider;
+
+    // UI & announcements
+    private CTFAnnouncementManager announcementManager;
+    private CTFSoundManager soundManager;
 
     /**
      * Gets the CTF plugin instance.
@@ -94,6 +103,9 @@ public class CTFPlugin extends JavaPlugin {
         // Initialize team manager first (other systems may depend on it)
         teamManager = new TeamManager(this);
 
+        // Initialize team visual manager
+        teamVisualManager = new TeamVisualManager(this);
+
         // Initialize arena manager (uses config loaded by withConfig)
         arenaManager = new ArenaManager(this, arenaConfig);
 
@@ -113,6 +125,10 @@ public class CTFPlugin extends JavaPlugin {
 
         // Initialize marker provider for editor integration
         markerProvider = new CTFMarkerProvider(this);
+
+        // Initialize announcement and sound managers
+        announcementManager = new CTFAnnouncementManager(this);
+        soundManager = new CTFSoundManager(this);
 
         // Register marker provider for all worlds (existing and new)
         getEventRegistry().registerGlobal(AddWorldEvent.class, event -> {
@@ -155,10 +171,18 @@ public class CTFPlugin extends JavaPlugin {
             flagCarrierManager.cleanup();
         }
 
+        // Clear team visuals
+        if (teamVisualManager != null) {
+            teamVisualManager.cleanup();
+        }
+
         // Clear team assignments
         if (teamManager != null) {
             teamManager.clearTeams();
         }
+
+        // Clean up score HUDs
+        CTFScoreHud.cleanup();
 
         // Clear static instance
         instance = null;
@@ -182,6 +206,11 @@ public class CTFPlugin extends JavaPlugin {
     }
 
     @Nullable
+    public TeamVisualManager getTeamVisualManager() {
+        return teamVisualManager;
+    }
+
+    @Nullable
     public MatchManager getMatchManager() {
         return matchManager;
     }
@@ -194,5 +223,15 @@ public class CTFPlugin extends JavaPlugin {
     @Nullable
     public CTFRespawnController getRespawnController() {
         return respawnController;
+    }
+
+    @Nullable
+    public CTFAnnouncementManager getAnnouncementManager() {
+        return announcementManager;
+    }
+
+    @Nullable
+    public CTFSoundManager getSoundManager() {
+        return soundManager;
     }
 }

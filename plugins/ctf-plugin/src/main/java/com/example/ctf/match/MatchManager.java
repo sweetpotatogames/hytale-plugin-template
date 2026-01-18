@@ -2,8 +2,8 @@ package com.example.ctf.match;
 
 import com.example.ctf.CTFPlugin;
 import com.example.ctf.FlagTeam;
-import com.hypixel.hytale.server.core.Message;
-import com.hypixel.hytale.server.core.universe.PlayerRef;
+import com.example.ctf.ui.CTFAnnouncementManager;
+import com.example.ctf.ui.CTFScoreHud;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,7 +43,16 @@ public class MatchManager {
         state = MatchState.ACTIVE;
         winner = null;
         resetScores();
-        broadcastMessage("Match started! First to " + scoreLimit + " captures wins!");
+
+        // Show score HUD to all players
+        CTFScoreHud.showToAllPlayers(plugin, 0, 0);
+
+        // Announce match start
+        CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+        if (announcementManager != null) {
+            announcementManager.announceMatchStart();
+        }
+
         plugin.getLogger().atInfo().log("CTF match started");
         return true;
     }
@@ -59,7 +68,16 @@ public class MatchManager {
         }
 
         state = MatchState.ENDED;
-        broadcastMessage("Match ended!");
+
+        // Hide score HUD from all players
+        CTFScoreHud.hideFromAllPlayers();
+
+        // Announce match end (tie/no winner)
+        CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+        if (announcementManager != null) {
+            announcementManager.announceMatchEnd(null, scores.get(FlagTeam.RED), scores.get(FlagTeam.BLUE));
+        }
+
         plugin.getLogger().atInfo().log("CTF match ended manually");
         return true;
     }
@@ -73,12 +91,19 @@ public class MatchManager {
         state = MatchState.ENDED;
         winner = winningTeam;
 
-        String finalScore = String.format("%s %d - %d %s",
-            FlagTeam.RED.getDisplayName(), scores.get(FlagTeam.RED),
-            scores.get(FlagTeam.BLUE), FlagTeam.BLUE.getDisplayName());
+        int redScore = scores.get(FlagTeam.RED);
+        int blueScore = scores.get(FlagTeam.BLUE);
 
-        broadcastMessage(winningTeam.getDisplayName() + " wins! Final score: " + finalScore);
-        plugin.getLogger().atInfo().log("CTF match won by {} with score {}", winningTeam, finalScore);
+        // Hide score HUD from all players
+        CTFScoreHud.hideFromAllPlayers();
+
+        // Announce match end with winner
+        CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+        if (announcementManager != null) {
+            announcementManager.announceMatchEnd(winningTeam, redScore, blueScore);
+        }
+
+        plugin.getLogger().atInfo().log("CTF match won by {} with score {}-{}", winningTeam, redScore, blueScore);
     }
 
     /**
@@ -91,17 +116,20 @@ public class MatchManager {
         winner = null;
         resetScores();
 
+        // Hide score HUD from all players
+        CTFScoreHud.hideFromAllPlayers();
+
         // Return all flags to stands
         plugin.getFlagCarrierManager().returnFlagToStand(FlagTeam.RED);
         plugin.getFlagCarrierManager().returnFlagToStand(FlagTeam.BLUE);
 
-        broadcastMessage("Match reset. Scores cleared.");
         plugin.getLogger().atInfo().log("CTF match reset");
         return true;
     }
 
     /**
      * Adds a point to a team's score and checks win condition.
+     * Note: Capture announcement is handled by FlagCarrierManager.
      *
      * @param team The team that scored
      * @return true if this score won the match
@@ -114,12 +142,14 @@ public class MatchManager {
         int newScore = scores.get(team) + 1;
         scores.put(team, newScore);
 
-        String scoreString = String.format("%s %d - %d %s",
-            FlagTeam.RED.getDisplayName(), scores.get(FlagTeam.RED),
-            scores.get(FlagTeam.BLUE), FlagTeam.BLUE.getDisplayName());
+        int redScore = scores.get(FlagTeam.RED);
+        int blueScore = scores.get(FlagTeam.BLUE);
 
-        broadcastMessage(team.getDisplayName() + " captured the flag! Score: " + scoreString);
-        plugin.getLogger().atInfo().log("{} scored! Current: {}", team, scoreString);
+        // Update score HUD for all players
+        CTFScoreHud.updateAllScores(redScore, blueScore);
+
+        plugin.getLogger().atInfo().log("{} scored! Current: Red {} - Blue {}",
+            team, redScore, blueScore);
 
         // Check win condition
         if (newScore >= scoreLimit) {
@@ -208,12 +238,5 @@ public class MatchManager {
     private void resetScores() {
         scores.put(FlagTeam.RED, 0);
         scores.put(FlagTeam.BLUE, 0);
-    }
-
-    private void broadcastMessage(@Nonnull String message) {
-        // Broadcast to all connected players
-        for (PlayerRef playerRef : plugin.getServerState().getAllPlayerRefs()) {
-            playerRef.sendChatMessage(Message.raw("[CTF] " + message));
-        }
     }
 }

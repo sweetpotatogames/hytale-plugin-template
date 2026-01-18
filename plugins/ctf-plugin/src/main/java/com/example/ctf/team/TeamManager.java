@@ -2,6 +2,8 @@ package com.example.ctf.team;
 
 import com.example.ctf.CTFPlugin;
 import com.example.ctf.FlagTeam;
+import com.example.ctf.ui.CTFAnnouncementManager;
+import com.hypixel.hytale.server.core.universe.PlayerRef;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,14 +35,60 @@ public class TeamManager {
      * @return true if the assignment was successful
      */
     public boolean assignTeam(@Nonnull UUID playerUuid, @Nonnull FlagTeam team) {
-        // Remove from current team if any
-        leaveTeam(playerUuid);
+        return assignTeam(playerUuid, team, null);
+    }
+
+    /**
+     * Assigns a player to a team with announcement.
+     *
+     * @param playerUuid The player's UUID
+     * @param team The team to join
+     * @param playerName The player's display name for announcements (optional)
+     * @return true if the assignment was successful
+     */
+    public boolean assignTeam(@Nonnull UUID playerUuid, @Nonnull FlagTeam team, @Nullable String playerName) {
+        return assignTeam(playerUuid, team, playerName, null);
+    }
+
+    /**
+     * Assigns a player to a team with announcement and visual effect.
+     *
+     * @param playerUuid The player's UUID
+     * @param team The team to join
+     * @param playerName The player's display name for announcements (optional)
+     * @param playerRef The player reference for applying visual effects (optional)
+     * @return true if the assignment was successful
+     */
+    public boolean assignTeam(@Nonnull UUID playerUuid, @Nonnull FlagTeam team,
+                               @Nullable String playerName, @Nullable PlayerRef playerRef) {
+        // Remove from current team if any (silently, we'll announce the new team)
+        FlagTeam oldTeam = playerTeams.remove(playerUuid);
+        if (oldTeam != null) {
+            getTeamSet(oldTeam).remove(playerUuid);
+        }
 
         // Assign to new team
         playerTeams.put(playerUuid, team);
         getTeamSet(team).add(playerUuid);
 
         plugin.getLogger().atInfo().log("Player {} joined {} team", playerUuid, team.getDisplayName());
+
+        // Apply team visual effect
+        if (playerRef != null) {
+            TeamVisualManager visualManager = plugin.getTeamVisualManager();
+            if (visualManager != null) {
+                visualManager.applyTeamEffect(playerRef, team);
+            }
+        }
+
+        // Announce team join
+        if (playerName != null) {
+            CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+            if (announcementManager != null) {
+                announcementManager.announceTeamJoin(playerUuid, playerName, team);
+            }
+        }
+
         return true;
     }
 
@@ -52,10 +100,51 @@ public class TeamManager {
      */
     @Nullable
     public FlagTeam leaveTeam(@Nonnull UUID playerUuid) {
+        return leaveTeam(playerUuid, null);
+    }
+
+    /**
+     * Removes a player from their current team with announcement.
+     *
+     * @param playerUuid The player's UUID
+     * @param playerName The player's display name for announcements (optional)
+     * @return The team they left, or null if they weren't on a team
+     */
+    @Nullable
+    public FlagTeam leaveTeam(@Nonnull UUID playerUuid, @Nullable String playerName) {
+        return leaveTeam(playerUuid, playerName, null);
+    }
+
+    /**
+     * Removes a player from their current team with announcement and visual effect removal.
+     *
+     * @param playerUuid The player's UUID
+     * @param playerName The player's display name for announcements (optional)
+     * @param playerRef The player reference for removing visual effects (optional)
+     * @return The team they left, or null if they weren't on a team
+     */
+    @Nullable
+    public FlagTeam leaveTeam(@Nonnull UUID playerUuid, @Nullable String playerName, @Nullable PlayerRef playerRef) {
         FlagTeam currentTeam = playerTeams.remove(playerUuid);
         if (currentTeam != null) {
             getTeamSet(currentTeam).remove(playerUuid);
             plugin.getLogger().atInfo().log("Player {} left {} team", playerUuid, currentTeam.getDisplayName());
+
+            // Remove team visual effect
+            if (playerRef != null) {
+                TeamVisualManager visualManager = plugin.getTeamVisualManager();
+                if (visualManager != null) {
+                    visualManager.removeTeamEffect(playerRef);
+                }
+            }
+
+            // Announce team leave
+            if (playerName != null) {
+                CTFAnnouncementManager announcementManager = plugin.getAnnouncementManager();
+                if (announcementManager != null) {
+                    announcementManager.announceTeamLeave(playerUuid, playerName, currentTeam);
+                }
+            }
         }
         return currentTeam;
     }
