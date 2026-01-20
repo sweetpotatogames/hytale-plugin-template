@@ -2,6 +2,7 @@ package com.arcane.conduits.core.power;
 
 import com.arcane.conduits.blocks.state.ConduitBlockState;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
@@ -17,6 +18,7 @@ import java.util.*;
  * - Power takes the maximum path (not cumulative)
  * - Networks are traversed breadth-first for efficiency
  */
+@SuppressWarnings("deprecation")  // BlockState is deprecated but still functional
 public class PowerPropagator {
 
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -249,7 +251,8 @@ public class PowerPropagator {
      * Update the power level of a block.
      */
     private void updateBlockPower(World world, Vector3i pos, int power) {
-        WorldChunk chunk = world.getChunkIfLoaded(pos.x >> 5, pos.z >> 5);
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(pos.x, pos.z);
+        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
         if (chunk == null) {
             return;
         }
@@ -264,7 +267,8 @@ public class PowerPropagator {
      * Check if a position contains a conduit block.
      */
     private boolean isConduit(World world, Vector3i pos) {
-        WorldChunk chunk = world.getChunkIfLoaded(pos.x >> 5, pos.z >> 5);
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(pos.x, pos.z);
+        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
         if (chunk == null) {
             return false;
         }
@@ -277,7 +281,8 @@ public class PowerPropagator {
      * Get the decay rate for a conduit at the given position.
      */
     private int getDecayRate(World world, Vector3i pos) {
-        WorldChunk chunk = world.getChunkIfLoaded(pos.x >> 5, pos.z >> 5);
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(pos.x, pos.z);
+        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
         if (chunk == null) {
             return 1;
         }
@@ -294,9 +299,8 @@ public class PowerPropagator {
      * Returns 0 if not a power source.
      */
     private int getPowerSourceLevel(World world, Vector3i pos) {
-        // TODO: Implement power source detection
-        // For now, check if block type starts with power source prefix
-        WorldChunk chunk = world.getChunkIfLoaded(pos.x >> 5, pos.z >> 5);
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(pos.x, pos.z);
+        WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
         if (chunk == null) {
             return 0;
         }
@@ -306,8 +310,8 @@ public class PowerPropagator {
             return 0;
         }
 
-        String name = blockType.getName();
-        if (name != null && name.contains("mana_crystal_core")) {
+        String id = blockType.getId();
+        if (id != null && id.contains("Mana_Crystal_Core")) {
             return 15;  // Max power for crystal core
         }
 

@@ -6,6 +6,7 @@ import com.hypixel.hytale.codec.Codec;
 import com.hypixel.hytale.codec.KeyedCodec;
 import com.hypixel.hytale.codec.builder.BuilderCodec;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.asset.type.blocktick.BlockTickStrategy;
 import com.hypixel.hytale.server.core.asset.type.blocktick.config.TickProcedure;
@@ -190,7 +191,8 @@ public class ConduitTickProcedure extends TickProcedure {
         }
 
         // Query the world for the neighboring chunk (only if loaded)
-        return world.getChunkIfLoaded(chunkX, chunkZ);
+        long chunkIndex = ChunkUtil.indexChunkFromBlock(blockX, blockZ);
+        return world.getChunkIfLoaded(chunkIndex);
     }
 
     /**

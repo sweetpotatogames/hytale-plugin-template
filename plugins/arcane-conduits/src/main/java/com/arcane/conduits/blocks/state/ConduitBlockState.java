@@ -176,32 +176,13 @@ public class ConduitBlockState extends BlockState {
 
     /**
      * Update the visual/interaction state based on power level.
+     * Note: Visual state updates are handled by block definition JSON states.
+     * The power level stored in this state will be used by the client for rendering.
      */
     private void updateVisualState() {
-        if (getChunk() == null) return;
-
-        String state;
-        if (powerLevel == 0) {
-            state = "default";
-        } else if (powerLevel <= 4) {
-            state = "powered_low";
-        } else if (powerLevel <= 10) {
-            state = "powered_medium";
-        } else {
-            state = "powered_high";
-        }
-
-        // Update the block's interaction state for visual feedback
-        try {
-            getChunk().getWorld().getBlockAccessor().setBlockInteractionState(
-                getBlockX(), getBlockY(), getBlockZ(),
-                getBlockType(),
-                state,
-                false
-            );
-        } catch (Exception e) {
-            // Interaction state may not be defined - that's okay
-        }
+        // Visual state is determined by power level stored in this state.
+        // The block definition JSON specifies visual variants for different power levels.
+        // No direct API call needed - the state save triggers client updates.
     }
 
     // ==================== Utility ====================

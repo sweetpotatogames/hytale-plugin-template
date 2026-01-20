@@ -128,15 +128,15 @@ public class ArcaneConduitsPlugin extends JavaPlugin {
 
     private void onBlockBroken(BreakBlockEvent event) {
         // Check if the broken block is a conduit
-        if (event.getBlockType() != null && isConduitBlockType(event.getBlockType().getName())) {
+        if (event.getBlockType() != null && isConduitBlockType(event.getBlockType().getId())) {
             // Invalidate the network at this position
             networkManager.invalidateNetworkAt(event.getTargetBlock());
         }
     }
 
-    private boolean isConduitBlock(com.hypixel.hytale.server.core.inventory.item.ItemStack itemStack) {
-        if (itemStack == null) return false;
-        String itemName = itemStack.getItemType().getKey();
+    private boolean isConduitBlock(com.hypixel.hytale.server.core.inventory.ItemStack itemStack) {
+        if (itemStack == null || itemStack.getItem() == null) return false;
+        String itemName = itemStack.getItem().getId();
         return itemName != null && itemName.startsWith("arcaneconduits:");
     }
 

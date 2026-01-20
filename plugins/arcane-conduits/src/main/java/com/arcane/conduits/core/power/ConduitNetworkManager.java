@@ -1,8 +1,12 @@
 package com.arcane.conduits.core.power;
 
+import com.arcane.conduits.blocks.state.ConduitBlockState;
 import com.hypixel.hytale.logger.HytaleLogger;
+import com.hypixel.hytale.math.util.ChunkUtil;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.universe.world.World;
+import com.hypixel.hytale.server.core.universe.world.chunk.WorldChunk;
+import com.hypixel.hytale.server.core.universe.world.meta.BlockState;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * When a block is placed or broken, the affected network is marked dirty
  * and recalculated on the next tick.
  */
+@SuppressWarnings("deprecation")  // BlockState is deprecated but still functional
 public class ConduitNetworkManager {
 
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -170,11 +175,12 @@ public class ConduitNetworkManager {
 
             if (visited.contains(pos)) continue;
 
-            var chunk = world.getChunkIfLoaded(pos.x >> 5, pos.z >> 5);
+            long chunkIndex = ChunkUtil.indexChunkFromBlock(pos.x, pos.z);
+            WorldChunk chunk = world.getChunkIfLoaded(chunkIndex);
             if (chunk == null) continue;
 
-            var state = chunk.getState(pos.x & 31, pos.y, pos.z & 31);
-            if (state instanceof com.arcane.conduits.blocks.state.ConduitBlockState conduit) {
+            BlockState state = chunk.getState(pos.x & 31, pos.y, pos.z & 31);
+            if (state instanceof ConduitBlockState conduit) {
                 visited.add(pos.clone());
                 totalPower += conduit.getPowerLevel();
 

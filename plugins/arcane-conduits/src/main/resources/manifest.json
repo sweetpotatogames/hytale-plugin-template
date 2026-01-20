@@ -10,8 +10,12 @@
     ],
     "Website": "https://github.com/sweetpotatogames",
     "ServerVersion": "*",
-    "Dependencies": {},
-    "OptionalDependencies": {},
+    "Dependencies": {
+        
+    },
+    "OptionalDependencies": {
+        
+    },
     "DisabledByDefault": false,
     "Main": "com.arcane.conduits.ArcaneConduitsPlugin",
     "IncludesAssetPack": true

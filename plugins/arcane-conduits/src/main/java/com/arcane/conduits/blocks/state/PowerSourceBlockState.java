@@ -156,22 +156,13 @@ public class PowerSourceBlockState extends BlockState {
 
     /**
      * Update the visual/interaction state.
+     * Note: Visual state updates are handled by block definition JSON states.
+     * The active state stored here will be used by the client for rendering.
      */
     private void updateVisualState() {
-        if (getChunk() == null) return;
-
-        String state = active ? "active" : "default";
-
-        try {
-            getChunk().getWorld().getBlockAccessor().setBlockInteractionState(
-                getBlockX(), getBlockY(), getBlockZ(),
-                getBlockType(),
-                state,
-                false
-            );
-        } catch (Exception e) {
-            // Interaction state may not be defined
-        }
+        // Visual state is determined by active state stored in this state.
+        // The block definition JSON specifies visual variants for active/inactive.
+        // No direct API call needed - the state save triggers client updates.
     }
 
     @Override
