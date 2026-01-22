@@ -1,5 +1,6 @@
 package com.example.dnd.combat;
 
+import com.example.dnd.camera.CameraInputHandler;
 import com.example.dnd.movement.GridMovementManager;
 import com.example.dnd.targeting.TargetManager;
 import com.hypixel.hytale.component.Ref;
@@ -160,7 +161,16 @@ public class CombatEventHandler {
             }
 
         } else if (buttonType == MouseButtonType.Right) {
-            // Right-click: Confirm movement
+            // Right-click: Confirm movement (only if not being used for camera rotation)
+            UUID playerId = player.getPlayerRef().getUuid();
+
+            // Check if this right-click was used for camera rotation
+            if (CameraInputHandler.get().isRightClickForCamera(playerId)) {
+                LOGGER.atFine().log("Right-click ignored for combat: Player %s was rotating camera",
+                    player.getPlayerRef().getUsername());
+                return; // Don't process as movement confirm
+            }
+
             Vector3i targetBlock = event.getTargetBlock();
             if (targetBlock != null) {
                 event.setCancelled(true);
