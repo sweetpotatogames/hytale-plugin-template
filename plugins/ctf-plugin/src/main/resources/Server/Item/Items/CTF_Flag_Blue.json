@@ -3,6 +3,7 @@
     "Name": "ctf.items.flag_blue.name",
     "Description": "ctf.items.flag_blue.description"
   },
+  "Icon": "Icons/Items/CTF/Flag_Blue.png",
   "Quality": "Rare",
   "MaxStack": 1,
   "PlayerAnimationsId": "Item",
