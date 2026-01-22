@@ -3,13 +3,7 @@ package com.example.dnd.targeting;
 import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.vector.Vector3d;
-import com.hypixel.hytale.server.core.entity.Entity;
-import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
-import com.hypixel.hytale.server.core.modules.entitystats.EntityStatMap;
-import com.hypixel.hytale.server.core.modules.entitystats.EntityStatValue;
-import com.hypixel.hytale.server.core.modules.entitystats.asset.DefaultEntityStatTypes;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.hypixel.hytale.server.npc.entities.NPCEntity;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -17,6 +11,9 @@ import javax.annotation.Nullable;
 /**
  * Immutable snapshot of target entity information.
  * Used to display target info in HUD without holding entity references.
+ *
+ * TODO: Component accessor is required for fromEntityRef() but cannot
+ * be obtained from World. ECS integration research needed.
  */
 public class TargetInfo {
     private final Ref<EntityStore> entityRef;
@@ -48,8 +45,19 @@ public class TargetInfo {
     /**
      * Create a TargetInfo from an entity reference.
      * Returns null if the entity is not a valid target.
+     *
+     * TODO: Component accessor integration disabled - needs ECS API research.
+     * The accessor parameter is required but currently not used because
+     * we can't obtain a ComponentAccessor from World.
+     *
+     * When ECS integration is implemented, this method should:
+     * - Get Entity component to validate the entity
+     * - Get NPCEntity component for name/role info
+     * - Get EntityStatMap for health stats
+     * - Get TransformComponent for position
      */
     @Nullable
+    @SuppressWarnings("unused")
     public static TargetInfo fromEntityRef(
         @Nonnull Ref<EntityStore> entityRef,
         @Nonnull ComponentAccessor<EntityStore> accessor
@@ -58,48 +66,17 @@ public class TargetInfo {
             return null;
         }
 
-        // Get the entity component
-        Entity entity = accessor.getComponent(entityRef, Entity.getComponentType());
-        if (entity == null) {
-            return null;
-        }
-
-        // Try to get NPC-specific info
-        NPCEntity npcEntity = accessor.getComponent(entityRef, NPCEntity.getComponentType());
-        String name;
-        String roleName;
-
-        if (npcEntity != null) {
-            roleName = npcEntity.getRoleName();
-            // Use role name as display name, formatted nicely
-            name = formatRoleName(roleName);
-        } else {
-            // Not an NPC, might be another entity type
-            name = "Unknown Entity";
-            roleName = "unknown";
-        }
-
-        // Get health from EntityStatMap
-        float currentHp = 0;
-        float maxHp = 0;
-
-        EntityStatMap statMap = accessor.getComponent(entityRef, EntityStatMap.getComponentType());
-        if (statMap != null) {
-            EntityStatValue healthStat = statMap.get(DefaultEntityStatTypes.getHealth());
-            if (healthStat != null) {
-                currentHp = healthStat.get();
-                maxHp = healthStat.getMax();
-            }
-        }
-
-        // Get position
-        Vector3d position = new Vector3d();
-        TransformComponent transform = accessor.getComponent(entityRef, TransformComponent.getComponentType());
-        if (transform != null) {
-            position.assign(transform.getPosition());
-        }
-
-        return new TargetInfo(entityRef, name, roleName, currentHp, maxHp, position, true);
+        // TODO: ECS component access disabled - needs API research
+        // For now, return a minimal TargetInfo with placeholder values
+        return new TargetInfo(
+            entityRef,
+            "Target",      // placeholder name
+            "unknown",     // placeholder role
+            100,           // placeholder current HP
+            100,           // placeholder max HP
+            new Vector3d(), // placeholder position
+            true
+        );
     }
 
     /**

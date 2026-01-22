@@ -1,14 +1,10 @@
 package com.example.dnd.movement;
 
-import com.hypixel.hytale.component.ComponentAccessor;
-import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.Color;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import java.util.*;
 
@@ -19,6 +15,9 @@ import java.util.*;
  * - Waypoint markers along the path
  * - Destination marker at the end
  * - Path line/trail effect
+ *
+ * TODO: Particle rendering requires ECS integration that needs API research.
+ * The world.getComponentAccessor() and player.getEntityRef() patterns have changed.
  */
 public class PathRenderer {
     // Particle system IDs (vanilla Hytale particles)
@@ -74,55 +73,40 @@ public class PathRenderer {
         // Particles naturally despawn, but we track state for efficiency
     }
 
+    // Path colors - Color uses bytes (0-255), not floats
+    // Green for reachable: RGB(77, 204, 77)
+    private static final Color PATH_COLOR_REACHABLE = new Color((byte)77, (byte)204, (byte)77);
+    // Red for unreachable: RGB(204, 77, 77)
+    private static final Color PATH_COLOR_UNREACHABLE = new Color((byte)204, (byte)77, (byte)77);
+    // Bright green for destination: RGB(51, 255, 51)
+    private static final Color DEST_COLOR_REACHABLE = new Color((byte)51, (byte)255, (byte)51);
+    // Bright red for destination: RGB(255, 51, 51)
+    private static final Color DEST_COLOR_UNREACHABLE = new Color((byte)255, (byte)51, (byte)51);
+
     /**
      * Spawn particles along the path.
+     *
+     * TODO: Implement particle spawning once ECS patterns are researched.
+     * The current ParticleUtil API requires ComponentAccessor and viewer list
+     * which needs proper ECS integration.
      */
+    @SuppressWarnings("unused")
     private void spawnPathParticles(Player player, List<Vector3i> path, boolean isReachable, World world) {
         if (path.isEmpty()) return;
 
-        Ref<EntityStore> playerRef = player.getEntityRef();
-        List<Ref<EntityStore>> viewers = Collections.singletonList(playerRef);
-        ComponentAccessor<EntityStore> accessor = world.getComponentAccessor();
+        // TODO: Particle rendering disabled - needs ECS API research
+        // The following patterns no longer work:
+        // - world.getComponentAccessor()
+        // - player.getEntityRef()
+        //
+        // Needs investigation into correct patterns for:
+        // - Getting ComponentAccessor from World
+        // - Getting entity Ref from Player
+        // - Using ParticleUtil.spawnParticleEffect
 
-        // Determine color based on reachability
-        // Green for reachable, red for unreachable
-        Color pathColor = isReachable
-            ? new Color(0.3f, 0.8f, 0.3f, 0.8f)   // Green
-            : new Color(0.8f, 0.3f, 0.3f, 0.8f);   // Red
-
-        Color destColor = isReachable
-            ? new Color(0.2f, 1.0f, 0.2f, 1.0f)    // Bright green
-            : new Color(1.0f, 0.2f, 0.2f, 1.0f);   // Bright red
-
-        // Spawn waypoint particles (skip first - that's the start position)
-        for (int i = 1; i < path.size(); i++) {
-            Vector3i waypoint = path.get(i);
-            Vector3d particlePos = new Vector3d(
-                waypoint.x + 0.5,  // Center of block
-                waypoint.y + 0.1,  // Slightly above ground
-                waypoint.z + 0.5
-            );
-
-            // Use different appearance for destination vs waypoints
-            boolean isDestination = (i == path.size() - 1);
-            String particleId = isDestination ? DESTINATION_PARTICLE : PATH_PARTICLE;
-            Color color = isDestination ? destColor : pathColor;
-            float scale = isDestination ? 0.8f : 0.5f;
-
-            // Spawn the particle
-            ParticleUtil.spawnParticleEffect(
-                particleId,
-                particlePos.getX(),
-                particlePos.getY(),
-                particlePos.getZ(),
-                0.0f, 0.0f, 0.0f,  // No rotation
-                scale,
-                color,
-                null,  // No source entity
-                viewers,
-                accessor
-            );
-        }
+        // Placeholder: Colors are defined at class level for when this is implemented
+        // Color pathColor = isReachable ? PATH_COLOR_REACHABLE : PATH_COLOR_UNREACHABLE;
+        // Color destColor = isReachable ? DEST_COLOR_REACHABLE : DEST_COLOR_UNREACHABLE;
     }
 
     /**

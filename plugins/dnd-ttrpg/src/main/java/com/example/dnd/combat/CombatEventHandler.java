@@ -3,7 +3,6 @@ package com.example.dnd.combat;
 import com.example.dnd.camera.CameraInputHandler;
 import com.example.dnd.movement.GridMovementManager;
 import com.example.dnd.targeting.TargetManager;
-import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.protocol.MouseButtonState;
@@ -14,7 +13,6 @@ import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.event.events.player.PlayerMouseButtonEvent;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
-import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import java.util.UUID;
 
@@ -88,6 +86,7 @@ public class CombatEventHandler {
      * Handle mouse clicks during the action phase.
      * Primary use: target selection for attacks/abilities.
      */
+    @SuppressWarnings("deprecation")
     private void handleActionPhaseClick(PlayerMouseButtonEvent event, World world) {
         MouseButtonType buttonType = event.getMouseButton().mouseButtonType;
         MouseButtonState buttonState = event.getMouseButton().state;
@@ -101,19 +100,14 @@ public class CombatEventHandler {
 
         // Left-click: Try to select entity as target
         if (buttonType == MouseButtonType.Left) {
-            Ref<EntityStore> targetEntityRef = event.getTargetEntity();
-            if (targetEntityRef != null && targetEntityRef.isValid()) {
-                // Try to get the entity from the ref
-                Entity targetEntity = world.getComponentAccessor().getComponent(
-                    targetEntityRef, Entity.getComponentType());
+            // getTargetEntity() returns Entity directly
+            Entity targetEntity = event.getTargetEntity();
+            if (targetEntity != null && targetManager.isValidTarget(targetEntity, world)) {
+                event.setCancelled(true);
+                targetManager.selectTarget(player, targetEntity, world);
 
-                if (targetEntity != null && targetManager.isValidTarget(targetEntity, world)) {
-                    event.setCancelled(true);
-                    targetManager.selectTarget(player, targetEntity, world);
-
-                    LOGGER.atFine().log("Target selection: Player %s clicked entity",
-                        player.getPlayerRef().getUsername());
-                }
+                LOGGER.atFine().log("Target selection: Player %s clicked entity",
+                    player.getPlayerRef().getUsername());
             }
         }
     }
@@ -121,6 +115,7 @@ public class CombatEventHandler {
     /**
      * Handle mouse clicks during the movement phase.
      */
+    @SuppressWarnings("deprecation")
     private void handleMovementPhaseClick(PlayerMouseButtonEvent event, World world) {
         MouseButtonType buttonType = event.getMouseButton().mouseButtonType;
         MouseButtonState buttonState = event.getMouseButton().state;
@@ -134,20 +129,16 @@ public class CombatEventHandler {
 
         if (buttonType == MouseButtonType.Left) {
             // Check if clicking on an entity first (for targeting)
-            Ref<EntityStore> targetEntityRef = event.getTargetEntity();
-            if (targetEntityRef != null && targetEntityRef.isValid()) {
-                Entity targetEntity = world.getComponentAccessor().getComponent(
-                    targetEntityRef, Entity.getComponentType());
+            // getTargetEntity() returns Entity directly
+            Entity targetEntity = event.getTargetEntity();
+            if (targetEntity != null && targetManager.isValidTarget(targetEntity, world)) {
+                // Clicked on a valid target - select it
+                event.setCancelled(true);
+                targetManager.selectTarget(player, targetEntity, world);
 
-                if (targetEntity != null && targetManager.isValidTarget(targetEntity, world)) {
-                    // Clicked on a valid target - select it
-                    event.setCancelled(true);
-                    targetManager.selectTarget(player, targetEntity, world);
-
-                    LOGGER.atFine().log("Movement phase target: Player %s selected entity",
-                        player.getPlayerRef().getUsername());
-                    return;
-                }
+                LOGGER.atFine().log("Movement phase target: Player %s selected entity",
+                    player.getPlayerRef().getUsername());
+                return;
             }
 
             // Otherwise, handle as movement destination

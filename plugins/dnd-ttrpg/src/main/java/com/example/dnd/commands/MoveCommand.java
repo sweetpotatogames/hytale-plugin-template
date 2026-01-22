@@ -60,7 +60,8 @@ public class MoveCommand extends AbstractPlayerCommand {
     ) {
         String action = context.get(actionArg);
         Integer value = context.get(valueArg);
-        Player player = context.getPlayer();
+        // Get Player component from the entity ref
+        Player player = store.getComponent(ref, Player.getComponentType());
         UUID playerId = playerRef.getUuid();
 
         switch (action.toLowerCase()) {

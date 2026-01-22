@@ -9,8 +9,6 @@ import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.math.vector.Vector3i;
 import com.hypixel.hytale.server.core.Message;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.modules.entity.component.TransformComponent;
-import com.hypixel.hytale.server.core.modules.entity.player.PlayerInput;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import com.hypixel.hytale.server.core.universe.world.World;
 
@@ -28,6 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Path visualization with particles
  * - Movement execution (teleport to destination)
  * - Movement tracking per turn
+ *
+ * TODO: Movement execution requires ECS integration for component access.
+ * The player.getComponent() pattern doesn't exist - need Store/Ref/ComponentAccessor.
  */
 public class GridMovementManager {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -178,22 +179,30 @@ public class GridMovementManager {
     /**
      * Execute the actual movement to the destination.
      * Currently uses instant teleport; can be enhanced with animation later.
+     *
+     * TODO: Implement proper movement execution once ECS patterns are researched.
+     * The player.getComponent() pattern doesn't exist - need to access
+     * PlayerInput component via Store.getComponent(ref, type).
      */
+    @SuppressWarnings("unused")
     private void executeMovement(Player player, MovementState state, World world) {
         Vector3i destination = state.getPlannedDestination();
 
-        // Get the PlayerInput component to queue the movement
-        PlayerInput playerInput = player.getComponent(PlayerInput.getComponentType());
-        if (playerInput != null) {
-            // Move to center of destination block
-            double x = destination.x + 0.5;
-            double y = destination.y;
-            double z = destination.z + 0.5;
+        // TODO: ECS movement disabled - needs API research
+        // The following patterns no longer work:
+        // - player.getComponent(PlayerInput.getComponentType())
+        //
+        // Needs investigation into correct patterns for:
+        // - Getting Store/Ref from Player component
+        // - Accessing PlayerInput component
+        // - Queueing AbsoluteMovement
 
-            playerInput.queue(new PlayerInput.AbsoluteMovement(x, y, z));
+        // Destination coordinates for when this is implemented:
+        // double x = destination.x + 0.5;
+        // double y = destination.y;
+        // double z = destination.z + 0.5;
 
-            LOGGER.atFine().log("Teleported player to %.1f, %.1f, %.1f", x, y, z);
-        }
+        LOGGER.atInfo().log("Movement execution pending ECS implementation: target %s", destination);
     }
 
     /**
@@ -231,17 +240,21 @@ public class GridMovementManager {
     /**
      * Start the movement phase for a player.
      * Called when combat starts or when a turn begins.
+     *
+     * TODO: Getting player position requires ECS integration.
+     * Currently uses placeholder position.
      */
+    @SuppressWarnings("deprecation")
     public void startMovementPhase(Player player, World world) {
         UUID playerId = player.getPlayerRef().getUuid();
 
-        // Get current position
-        TransformComponent transform = player.getComponent(TransformComponent.getComponentType());
-        Vector3i position = new Vector3i(
-            (int) Math.floor(transform.getPosition().x),
-            (int) Math.floor(transform.getPosition().y),
-            (int) Math.floor(transform.getPosition().z)
-        );
+        // TODO: Get current position - needs ECS API research
+        // The following pattern doesn't work:
+        // - player.getComponent(TransformComponent.getComponentType())
+        //
+        // For now, use a placeholder position (0,64,0)
+        // This should be replaced with actual position retrieval
+        Vector3i position = new Vector3i(0, 64, 0);
 
         // Get movement speed from character sheet
         int moveSpeed = getCharacterMoveSpeed(playerId);

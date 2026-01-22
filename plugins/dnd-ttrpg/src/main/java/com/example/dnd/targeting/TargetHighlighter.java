@@ -1,11 +1,9 @@
 package com.example.dnd.targeting;
 
-import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.math.vector.Vector3d;
 import com.hypixel.hytale.protocol.Color;
 import com.hypixel.hytale.server.core.entity.entities.Player;
-import com.hypixel.hytale.server.core.universe.world.ParticleUtil;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
@@ -15,14 +13,19 @@ import java.util.*;
 /**
  * Renders particle highlights around targeted entities.
  * Each player can have one highlighted target - the highlight is only visible to that player.
+ *
+ * TODO: Particle rendering requires ECS integration that needs API research.
+ * The world.getComponentAccessor() and player.getEntityRef() patterns have changed.
  */
 public class TargetHighlighter {
     // Particle system for target highlight
     private static final String TARGET_PARTICLE = "Block/Block_Top_Glow";
 
-    // Highlight colors
-    private static final Color TARGET_COLOR = new Color(1.0f, 0.4f, 0.1f, 0.9f);  // Orange
-    private static final Color TARGET_COLOR_LOW_HP = new Color(1.0f, 0.1f, 0.1f, 0.9f);  // Red for low HP
+    // Highlight colors - Color uses bytes (0-255), not floats
+    // Orange: RGB(255, 102, 26)
+    private static final Color TARGET_COLOR = new Color((byte)255, (byte)102, (byte)26);
+    // Red for low HP: RGB(255, 26, 26)
+    private static final Color TARGET_COLOR_LOW_HP = new Color((byte)255, (byte)26, (byte)26);
 
     // Number of particles in the ring around target
     private static final int RING_PARTICLE_COUNT = 8;
@@ -42,6 +45,7 @@ public class TargetHighlighter {
      * @param targetInfo The target information
      * @param world The world
      */
+    @SuppressWarnings("deprecation")
     public void highlightTarget(@Nonnull Player player, @Nonnull TargetInfo targetInfo, @Nonnull World world) {
         UUID playerId = player.getPlayerRef().getUuid();
 
@@ -85,50 +89,28 @@ public class TargetHighlighter {
     /**
      * Spawn highlight particles around the target.
      * Creates a ring of particles at the target's feet.
+     *
+     * TODO: Implement particle spawning once ECS patterns are researched.
+     * The current ParticleUtil API requires ComponentAccessor and viewer list
+     * which needs proper ECS integration.
      */
     private void spawnHighlightParticles(Player player, TargetInfo targetInfo, World world) {
         if (!targetInfo.isValid()) return;
 
         Vector3d targetPos = targetInfo.getPosition();
-        ComponentAccessor<EntityStore> accessor = world.getComponentAccessor();
-        List<Ref<EntityStore>> viewers = Collections.singletonList(player.getEntityRef());
 
-        // Choose color based on HP
-        Color color = targetInfo.getHpPercent() < 0.25f ? TARGET_COLOR_LOW_HP : TARGET_COLOR;
+        // TODO: Particle rendering disabled - needs ECS API research
+        // The following patterns no longer work:
+        // - world.getComponentAccessor()
+        // - player.getEntityRef()
+        //
+        // Needs investigation into correct patterns for:
+        // - Getting ComponentAccessor from World
+        // - Getting entity Ref from Player
+        // - Using ParticleUtil.spawnParticleEffect
 
-        // Spawn ring of particles around target
-        for (int i = 0; i < RING_PARTICLE_COUNT; i++) {
-            double angle = (2 * Math.PI * i) / RING_PARTICLE_COUNT;
-            double offsetX = Math.cos(angle) * RING_RADIUS;
-            double offsetZ = Math.sin(angle) * RING_RADIUS;
-
-            ParticleUtil.spawnParticleEffect(
-                TARGET_PARTICLE,
-                targetPos.getX() + offsetX,
-                targetPos.getY() + 0.1,  // Slightly above ground
-                targetPos.getZ() + offsetZ,
-                0.0f, 0.0f, 0.0f,  // No rotation
-                PARTICLE_SCALE,
-                color,
-                null,  // No source entity
-                viewers,
-                accessor
-            );
-        }
-
-        // Add center marker for emphasis
-        ParticleUtil.spawnParticleEffect(
-            TARGET_PARTICLE,
-            targetPos.getX(),
-            targetPos.getY() + 0.05,
-            targetPos.getZ(),
-            0.0f, 0.0f, 0.0f,
-            PARTICLE_SCALE * 0.5f,
-            color,
-            null,
-            viewers,
-            accessor
-        );
+        // Placeholder: Log that we would spawn particles
+        // Logger can be added if needed for debugging
     }
 
     /**

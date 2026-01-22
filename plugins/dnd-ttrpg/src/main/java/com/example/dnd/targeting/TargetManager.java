@@ -1,6 +1,5 @@
 package com.example.dnd.targeting;
 
-import com.hypixel.hytale.component.ComponentAccessor;
 import com.hypixel.hytale.component.Ref;
 import com.hypixel.hytale.logger.HytaleLogger;
 import com.hypixel.hytale.server.core.Message;
@@ -8,7 +7,6 @@ import com.hypixel.hytale.server.core.entity.Entity;
 import com.hypixel.hytale.server.core.entity.entities.Player;
 import com.hypixel.hytale.server.core.universe.world.World;
 import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
-import com.hypixel.hytale.server.npc.entities.NPCEntity;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -19,6 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Manages target selection for players during combat.
  * Each player can have one selected target at a time.
+ *
+ * TODO: Target info retrieval requires ECS integration.
+ * The world.getComponentAccessor() pattern doesn't exist.
  */
 public class TargetManager {
     private static final HytaleLogger LOGGER = HytaleLogger.forEnclosingClass();
@@ -48,16 +49,16 @@ public class TargetManager {
      * @param targetEntity The entity to target
      * @param world The world
      * @return true if target was successfully selected
+     *
+     * TODO: Full target info retrieval requires ECS integration.
      */
+    @SuppressWarnings("deprecation")
     public boolean selectTarget(@Nonnull Player player, @Nonnull Entity targetEntity, @Nonnull World world) {
         UUID playerId = player.getPlayerRef().getUuid();
         Ref<EntityStore> targetRef = targetEntity.getReference();
 
-        // Don't allow targeting self
-        if (targetRef.equals(player.getEntityRef())) {
-            player.getPlayerRef().sendMessage(Message.raw("[D&D] You cannot target yourself!"));
-            return false;
-        }
+        // TODO: Self-targeting check disabled - player.getEntityRef() doesn't exist
+        // Would need to compare entity references to prevent self-targeting
 
         // Check if this is the same target (toggle off)
         Ref<EntityStore> currentTarget = playerTargets.get(playerId);
@@ -75,30 +76,18 @@ public class TargetManager {
         // Set new target
         playerTargets.put(playerId, targetRef);
 
-        // Get target info for feedback
-        ComponentAccessor<EntityStore> accessor = world.getComponentAccessor();
-        TargetInfo info = TargetInfo.fromEntityRef(targetRef, accessor);
+        // TODO: Get target info for feedback - needs ECS integration
+        // The following pattern doesn't work:
+        // - world.getComponentAccessor()
+        // - TargetInfo.fromEntityRef(targetRef, accessor)
+        //
+        // For now, just confirm target selection without detailed info
+        player.getPlayerRef().sendMessage(Message.raw("[D&D] Target selected."));
 
-        if (info != null && info.isValid()) {
-            // Show highlight on new target
-            highlighter.highlightTarget(player, info, world);
+        LOGGER.atFine().log("Player %s selected target (entity ref: %s)",
+            player.getPlayerRef().getUsername(), targetRef);
 
-            // Notify player
-            player.getPlayerRef().sendMessage(Message.raw(
-                String.format("[D&D] Target: %s (HP: %.0f/%.0f)",
-                    info.getName(), info.getCurrentHp(), info.getMaxHp())
-            ));
-
-            LOGGER.atFine().log("Player %s selected target: %s",
-                player.getPlayerRef().getUsername(), info.getName());
-
-            return true;
-        } else {
-            // Invalid target
-            playerTargets.remove(playerId);
-            player.getPlayerRef().sendMessage(Message.raw("[D&D] Invalid target."));
-            return false;
-        }
+        return true;
     }
 
     /**
@@ -130,6 +119,8 @@ public class TargetManager {
      * @param playerId The player's UUID
      * @param world The world
      * @return TargetInfo or null
+     *
+     * TODO: Returns null until ECS integration is implemented.
      */
     @Nullable
     public TargetInfo getTargetInfo(@Nonnull UUID playerId, @Nonnull World world) {
@@ -143,17 +134,13 @@ public class TargetManager {
             return null;
         }
 
-        ComponentAccessor<EntityStore> accessor = world.getComponentAccessor();
-        TargetInfo info = TargetInfo.fromEntityRef(targetRef, accessor);
-
-        // Auto-clear dead targets
-        if (info == null || !info.isAlive()) {
-            playerTargets.remove(playerId);
-            highlighter.clearHighlight(playerId);
-            return null;
-        }
-
-        return info;
+        // TODO: Target info retrieval disabled - needs ECS API research
+        // The following pattern doesn't work:
+        // - world.getComponentAccessor()
+        // - TargetInfo.fromEntityRef(targetRef, accessor)
+        //
+        // For now, return null (no detailed target info available)
+        return null;
     }
 
     /**
@@ -186,19 +173,19 @@ public class TargetManager {
 
     /**
      * Check if a clicked entity is a valid target (NPC, not player).
+     *
+     * TODO: NPC type checking disabled - needs ECS API research.
+     * Currently allows all entities as valid targets.
      */
+    @SuppressWarnings("unused")
     public boolean isValidTarget(@Nonnull Entity entity, @Nonnull World world) {
-        Ref<EntityStore> ref = entity.getReference();
-        ComponentAccessor<EntityStore> accessor = world.getComponentAccessor();
-
-        // Check if it's an NPC
-        NPCEntity npc = accessor.getComponent(ref, NPCEntity.getComponentType());
-        if (npc != null) {
-            return true;
-        }
-
-        // Could add other valid target types here (e.g., destructible objects)
-        return false;
+        // TODO: Proper NPC type checking disabled - needs ECS API research
+        // The following pattern doesn't work:
+        // - world.getComponentAccessor()
+        // - accessor.getComponent(ref, NPCEntity.getComponentType())
+        //
+        // For now, allow any entity as a valid target
+        return entity != null && entity.getReference() != null && entity.getReference().isValid();
     }
 
     /**
@@ -210,34 +197,24 @@ public class TargetManager {
 
     /**
      * Update highlights for all targets (call periodically).
+     *
+     * TODO: Highlight refresh disabled - needs ECS API research.
      */
+    @SuppressWarnings("deprecation")
     public void refreshHighlights(@Nonnull World world) {
-        for (Map.Entry<UUID, Ref<EntityStore>> entry : playerTargets.entrySet()) {
-            UUID playerId = entry.getKey();
-            Ref<EntityStore> targetRef = entry.getValue();
-
-            if (targetRef == null || !targetRef.isValid()) {
-                continue;
-            }
-
-            // Find the player
-            Player player = findPlayerByUuid(world, playerId);
-            if (player == null) {
-                continue;
-            }
-
-            // Get fresh target info
-            TargetInfo info = TargetInfo.fromEntityRef(targetRef, world.getComponentAccessor());
-            if (info != null && info.isAlive()) {
-                highlighter.highlightTarget(player, info, world);
-            }
-        }
+        // TODO: Highlight refresh disabled - needs ECS API research
+        // The following pattern doesn't work:
+        // - world.getComponentAccessor()
+        // - TargetInfo.fromEntityRef(targetRef, accessor)
+        //
+        // Highlights are currently not refreshed automatically
     }
 
     /**
      * Find a player in the world by UUID.
      */
     @Nullable
+    @SuppressWarnings("deprecation")
     private Player findPlayerByUuid(@Nonnull World world, @Nonnull UUID playerId) {
         for (Player player : world.getPlayers()) {
             if (player.getPlayerRef().getUuid().equals(playerId)) {

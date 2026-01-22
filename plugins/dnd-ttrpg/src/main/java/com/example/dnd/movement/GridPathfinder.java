@@ -154,9 +154,9 @@ public class GridPathfinder {
         // - The block at pos+1 (head height) should be air (for player height)
         // - The block below pos should be solid (ground)
 
-        int blockAtFeet = world.getBlockAt(pos.x, pos.y, pos.z);
-        int blockAtHead = world.getBlockAt(pos.x, pos.y + 1, pos.z);
-        int blockBelow = world.getBlockAt(pos.x, pos.y - 1, pos.z);
+        int blockAtFeet = world.getBlock(pos.x, pos.y, pos.z);
+        int blockAtHead = world.getBlock(pos.x, pos.y + 1, pos.z);
+        int blockBelow = world.getBlock(pos.x, pos.y - 1, pos.z);
 
         // Block ID 0 is typically air
         boolean feetClear = blockAtFeet == 0;
@@ -174,10 +174,10 @@ public class GridPathfinder {
 
         if (dx != 0 && dz != 0) {
             // Diagonal movement - check both intermediate positions
-            int block1 = world.getBlockAt(from.x + dx, from.y, from.z);
-            int block2 = world.getBlockAt(from.x, from.y, from.z + dz);
-            int block1Head = world.getBlockAt(from.x + dx, from.y + 1, from.z);
-            int block2Head = world.getBlockAt(from.x, from.y + 1, from.z + dz);
+            int block1 = world.getBlock(from.x + dx, from.y, from.z);
+            int block2 = world.getBlock(from.x, from.y, from.z + dz);
+            int block1Head = world.getBlock(from.x + dx, from.y + 1, from.z);
+            int block2Head = world.getBlock(from.x, from.y + 1, from.z + dz);
 
             // At least one path must be clear for diagonal movement
             boolean path1Clear = (block1 == 0) && (block1Head == 0);
